@@ -1,13 +1,8 @@
 package org.rjansen.example.threads.strf.executioner;
 
 import org.rjansen.example.threads.strf.service.WorkerInterface;
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntityLarge;
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntityMedium;
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntitySmall;
-import org.rjansen.example.threads.strf.size.ExecutionerSize;
-import org.rjansen.example.threads.strf.size.Large;
-import org.rjansen.example.threads.strf.size.Medium;
-import org.rjansen.example.threads.strf.size.Small;
+import org.rjansen.example.threads.strf.size.ExecutionerPriority;
+import org.rjansen.example.threads.strf.size.ProcessPriority;
 import org.springframework.util.StopWatch;
 
 import java.time.LocalDateTime;
@@ -16,15 +11,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public abstract class ThreadExecutioner<E extends ExecutionerSize, R, S extends WorkerInterface<E, R>> {
+public abstract class ThreadExecutioner<E extends ExecutionerPriority, R, S extends WorkerInterface<E, R>> {
 
     static final int FIXED_SMALL_OBJECTS_THREADS = 15;
     static final int FIXED_MEDIUM_OBJECTS_THREADS = 10;
     static final int FIXED_LARGE_OBJECTS_THREADS = 5;
     static final int MAX_THREADS = 30;
     private AtomicInteger usedThreads = new AtomicInteger(0);
+    private AtomicBoolean processFIRSTActive = new AtomicBoolean(true);
+    private AtomicBoolean processSECONDActive = new AtomicBoolean(true);
+    private AtomicBoolean processTHIRDActive = new AtomicBoolean(true);
     private AtomicInteger smallObjectsProcessed = new AtomicInteger(0);
     private AtomicInteger mediumObjectsProcessed = new AtomicInteger(0);
     private AtomicInteger largeObjectsProcessed = new AtomicInteger(0);
@@ -34,7 +33,7 @@ public abstract class ThreadExecutioner<E extends ExecutionerSize, R, S extends 
         this.worker = Objects.requireNonNull(worker);
     }
 
-    protected void processAsyncObjects(List<ExecutionerSize> objectsToProcess) {
+    protected void processAsyncObjects(List<ExecutionerPriority> objectsToProcess) {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
         LocalDateTime start = LocalDateTime.now();
@@ -51,7 +50,7 @@ public abstract class ThreadExecutioner<E extends ExecutionerSize, R, S extends 
                 List<R> processed = executorCompletion.take().get();
                 System.out.println("Number of processed objects:" + processed.size());
                 System.out.println("Time consumed processing in thread "
-                        + count + ": " + start.until(LocalDateTime.now(), ChronoUnit.NANOS));
+                        + count + ": " + start.until(LocalDateTime.now(), ChronoUnit.MILLIS));
                 count++;
                 System.out.println("Large objects processed: " + largeObjectsProcessed);
                 System.out.println("Medium objects processed: " + mediumObjectsProcessed);
@@ -61,7 +60,7 @@ public abstract class ThreadExecutioner<E extends ExecutionerSize, R, S extends 
             e.printStackTrace();
         }
         stopWatch.stop();
-        System.out.println("Time consumed processing: " + stopWatch.getLastTaskTimeNanos());
+        System.out.println("Time consumed processing: " + stopWatch.getLastTaskTimeMillis());
         executor.shutdownNow();
     }
 
@@ -78,18 +77,18 @@ public abstract class ThreadExecutioner<E extends ExecutionerSize, R, S extends 
     }
 
     private List<R> processSmallSize(List<E> objectsToProcess) throws InterruptedException, ExecutionException {
-        return processThreads(objectsToProcess, FIXED_SMALL_OBJECTS_THREADS, 0);
+        return processThreads(objectsToProcess, FIXED_SMALL_OBJECTS_THREADS, ProcessPriority.FIRST);
     }
 
     private List<R> processMediumSize(List<E> objectsToProcess) throws ExecutionException, InterruptedException {
-        return processThreads(objectsToProcess, FIXED_MEDIUM_OBJECTS_THREADS, 1);
+        return processThreads(objectsToProcess, FIXED_MEDIUM_OBJECTS_THREADS, ProcessPriority.SECOND);
     }
 
     private List<R> processLargeSize(List<E> objectsToProcess) throws ExecutionException, InterruptedException {
-        return processThreads(objectsToProcess, FIXED_LARGE_OBJECTS_THREADS, 2);
+        return processThreads(objectsToProcess, FIXED_LARGE_OBJECTS_THREADS, ProcessPriority.THIRD);
     }
 
-    private List<R> processThreads(List<E> objectsToProcess, int numberOfThreads, int kindOfProcess) throws InterruptedException, ExecutionException {
+    private List<R> processThreads(List<E> objectsToProcess, int numberOfThreads, ProcessPriority priority) throws InterruptedException, ExecutionException {
         ExecutorService executor = Executors.newFixedThreadPool(
                 numberOfThreads
         );
@@ -102,23 +101,23 @@ public abstract class ThreadExecutioner<E extends ExecutionerSize, R, S extends 
         while (count < objectsToProcess.size()) {
             R processed = cs.take().get();
             processedList.add(processed);
-            increaseAmount(kindOfProcess);
+            increaseAmount(priority);
             count++;
         }
         return processedList;
     }
 
-    private void increaseAmount(int kindOfProcess) {
-        switch (kindOfProcess) {
-            case 0: {
+    private void increaseAmount(ProcessPriority priority) {
+        switch (priority) {
+            case FIRST: {
                 increaseAmountSmall();
                 break;
             }
-            case 1: {
+            case SECOND: {
                 increaseAmountMedium();
                 break;
             }
-            case 2: {
+            case THIRD: {
                 increaseAmountLarge();
                 break;
             }
@@ -130,22 +129,26 @@ public abstract class ThreadExecutioner<E extends ExecutionerSize, R, S extends 
      *
      * @param objectsToProcess list with objects to split by size
      * @return Position
-     * 0 -> {@link Small} list
-     * 1 -> {@link Medium} list
-     * 2 -> {@link Large} list
+     * 0 -> {@link org.rjansen.example.threads.strf.size.ProcessPriority} FIRST list
+     * 1 -> {@link org.rjansen.example.threads.strf.size.ProcessPriority} SECOND list
+     * 2 -> {@link org.rjansen.example.threads.strf.size.ProcessPriority} THIRD list
      */
-    private List<E>[] splitListIntoSizes(List<ExecutionerSize> objectsToProcess) {
-        List<Small> smallList = new ArrayList<>();
-        List<Medium> mediumList = new ArrayList<>();
-        List<Large> largeList = new ArrayList<>();
+    private List<E>[] splitListIntoSizes(List<ExecutionerPriority> objectsToProcess) {
+        List<ExecutionerPriority> smallList = new ArrayList<>();
+        List<ExecutionerPriority> mediumList = new ArrayList<>();
+        List<ExecutionerPriority> largeList = new ArrayList<>();
         objectsToProcess.forEach(object -> {
-            ExecutionerSize objectSized = object.getSize();
-            if (objectSized instanceof WorkerEntitySmall) {
-                smallList.add((WorkerEntitySmall) objectSized);
-            } else if (objectSized instanceof WorkerEntityMedium) {
-                mediumList.add((WorkerEntityMedium) objectSized);
-            } else {
-                largeList.add((WorkerEntityLarge) objectSized);
+            ProcessPriority priority = object.getPriority();
+            switch (priority) {
+                case FIRST:
+                    smallList.add(object);
+                    break;
+                case SECOND:
+                    mediumList.add(object);
+                    break;
+                default:
+                    largeList.add(object);
+                    break;
             }
         });
         return new List[]{smallList, mediumList, largeList};

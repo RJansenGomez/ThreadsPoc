@@ -6,11 +6,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.provider.ArgumentsSource;
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntityLarge;
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntityMedium;
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntitySmall;
+import org.rjansen.example.threads.strf.service.entity.WorkerEntity;
 import org.rjansen.example.threads.strf.service.impl.WorkerServiceImpl;
-import org.rjansen.example.threads.strf.size.ExecutionerSize;
+import org.rjansen.example.threads.strf.size.ExecutionerPriority;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.time.LocalDateTime;
@@ -26,7 +24,7 @@ public class ThreadExecutionerTest {
 
     @ParameterizedTest
     @ArgumentsSource(ThreadTestDataProvider.class)
-    public void dataProviderTest(List<ExecutionerSize> objectsToProcess) {
+    public void dataProviderTest(List<ExecutionerPriority> objectsToProcess) {
         executioner.processAsyncObjects(objectsToProcess);
     }
 
@@ -40,49 +38,50 @@ public class ThreadExecutionerTest {
         }
     }
 
-    private static List<ExecutionerSize> generateData1() {
-        List<ExecutionerSize> sumOfAllObjects = new ArrayList<>(largeObjects(1000));
+    private static List<ExecutionerPriority> generateData1() {
+        List<ExecutionerPriority> sumOfAllObjects = new ArrayList<>(largeObjects(1000));
         sumOfAllObjects.addAll(mediumObjects(2000));
         sumOfAllObjects.addAll(smallObjects(1500));
         return sumOfAllObjects;
     }
 
-    private static List<ExecutionerSize> largeObjects(int number) {
-        List<ExecutionerSize> objectList = new ArrayList<>();
+    private static List<ExecutionerPriority> largeObjects(int number) {
+        List<ExecutionerPriority> objectList = new ArrayList<>();
         int count = 0;
         while (count < number) {
-            objectList.add(generateLargeObject());
+            objectList.add(generateLargeObject(count));
             count++;
         }
         return objectList;
     }
 
-    private static List<ExecutionerSize> mediumObjects(int number) {
-        List<ExecutionerSize> objectList = new ArrayList<>();
+    private static List<ExecutionerPriority> mediumObjects(int number) {
+        List<ExecutionerPriority> objectList = new ArrayList<>();
         int count = 0;
         while (count < number) {
-            objectList.add(generateMediumObject());
+            objectList.add(generateMediumObject(count));
             count++;
         }
         return objectList;
     }
 
-    private static List<ExecutionerSize> smallObjects(int number) {
-        List<ExecutionerSize> objectList = new ArrayList<>();
+    private static List<ExecutionerPriority> smallObjects(int number) {
+        List<ExecutionerPriority> objectList = new ArrayList<>();
         int count = 0;
         while (count < number) {
-            objectList.add(generateSmallObject());
+            objectList.add(generateSmallObject(count));
             count++;
         }
         return objectList;
     }
 
-    private static ExecutionerSize generateLargeObject() {
+    private static ExecutionerPriority generateLargeObject(int id) {
         //The large object is considered when the number is higher than 1000 -> sum of the 4 lists size
         //So we have here 1040 objects
         int amount = 310;
         List<Integer> listAges = createIntegerList(amount);
-        return new WorkerEntityLarge.WorkerEntityBuilder()
+        return new WorkerEntity.WorkerEntityBuilder()
+                .id("Large " + id)
                 .names(createStringList("large", amount))
                 .surnames(createStringList("surname Large", amount))
                 .ages(listAges)
@@ -94,12 +93,13 @@ public class ThreadExecutionerTest {
                 .build();
     }
 
-    private static ExecutionerSize generateMediumObject() {
+    private static ExecutionerPriority generateMediumObject(int id) {
         //The medium object is considered when the number is higher than 500 -> sum of the 4 lists size
         //So we have here 600 objects
         int amount = 150;
         List<Integer> listAges = createIntegerList(amount);
-        return new WorkerEntityMedium.WorkerEntityBuilder()
+        return new WorkerEntity.WorkerEntityBuilder()
+                .id("Medium " + id)
                 .names(createStringList("medium", amount))
                 .surnames(createStringList("surname Medium", amount))
                 .ages(listAges)
@@ -111,12 +111,13 @@ public class ThreadExecutionerTest {
                 .build();
     }
 
-    private static ExecutionerSize generateSmallObject() {
+    private static ExecutionerPriority generateSmallObject(int id) {
         //The medium object is considered when the number is lower than 500 -> sum of the 4 lists size
         //So we have here 480 objects
         int amount = 120;
         List<Integer> listAges = createIntegerList(amount);
-        return new WorkerEntitySmall.WorkerEntityBuilder()
+        return new WorkerEntity.WorkerEntityBuilder()
+                .id("Small " + id)
                 .names(createStringList("small", amount))
                 .surnames(createStringList("surname Small", amount))
                 .ages(listAges)

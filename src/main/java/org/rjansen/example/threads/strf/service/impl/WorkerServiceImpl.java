@@ -39,7 +39,7 @@ public class WorkerServiceImpl implements WorkerInterface<WorkerEntity, WorkerEn
         String surname = workerObject.getSurnames().get(position);
         Integer age = workerObject.getAges().get(position);
         LocalDateTime birthDate = workerObject.getBirthDates().get(position);
-        String objectType = workerObject.getSize().getClass().getSimpleName();
+        String objectType = workerObject.getPriority().name();
         return "User name: " + name +
                 ", Surname:" + surname +
                 ", Age: " + age +

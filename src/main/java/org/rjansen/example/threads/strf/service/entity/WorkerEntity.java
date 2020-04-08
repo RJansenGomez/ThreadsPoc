@@ -1,17 +1,16 @@
 package org.rjansen.example.threads.strf.service.entity;
 
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntityLarge;
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntityMedium;
-import org.rjansen.example.threads.strf.service.entity.sizes.WorkerEntitySmall;
-import org.rjansen.example.threads.strf.size.ExecutionerSize;
+import org.rjansen.example.threads.strf.size.ExecutionerPriority;
+import org.rjansen.example.threads.strf.size.ProcessPriority;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
 
 
-public class WorkerEntity implements ExecutionerSize{
+public class WorkerEntity implements ExecutionerPriority {
     private static final int LARGE_SIZE = 1000;
     private static final int MEDIUM_SIZE = 500;
     private String id;
@@ -19,10 +18,8 @@ public class WorkerEntity implements ExecutionerSize{
     private List<String> surnames;
     private List<Integer> ages;
     private List<LocalDateTime> birthDates;
-    private WorkerEntityGenericBuilder<?> builder;
 
-    protected WorkerEntity(WorkerEntityGenericBuilder<?> builder) {
-        this.builder = builder;
+    protected WorkerEntity(WorkerEntityBuilder builder) {
         assertNotNull(builder.id);
         this.id = builder.id;
         this.names = builder.names;
@@ -31,27 +28,52 @@ public class WorkerEntity implements ExecutionerSize{
         this.birthDates = builder.birthDates;
     }
 
-    public static class WorkerEntityBuilder extends WorkerEntityGenericBuilder<WorkerEntity> {
-        @Override
-        public WorkerEntity build() {
-            return new WorkerEntity(this);
+    public static class WorkerEntityBuilder {
+        String id;
+        List<String> names = new ArrayList<>();
+        List<String> surnames = new ArrayList<>();
+        List<Integer> ages = new ArrayList<>();
+        List<LocalDateTime> birthDates = new ArrayList<>();
+
+        public WorkerEntityBuilder id(String id) {
+            this.id = id;
+            return this;
         }
 
-        @Override
-        public WorkerEntity build(WorkerEntityGenericBuilder<?> builder) {
-            return new WorkerEntity(builder);
+        public WorkerEntityBuilder names(List<String> names) {
+            this.names = names;
+            return this;
+        }
+
+        public WorkerEntityBuilder surnames(List<String> surnames) {
+            this.surnames = surnames;
+            return this;
+        }
+
+        public WorkerEntityBuilder ages(List<Integer> ages) {
+            this.ages = ages;
+            return this;
+        }
+
+        public WorkerEntityBuilder birthDates(List<LocalDateTime> birthDates) {
+            this.birthDates = birthDates;
+            return this;
+        }
+
+        public WorkerEntity build() {
+            return new WorkerEntity(this);
         }
     }
 
     @Override
-    public ExecutionerSize getSize() {
+    public ProcessPriority getPriority() {
         int totalAmount = names.size() + surnames.size() + ages.size() + birthDates.size();
         if (totalAmount >= LARGE_SIZE) {
-            return new WorkerEntityLarge.WorkerEntityLargeBuilder().build(this.builder);
+            return ProcessPriority.THIRD;
         } else if (totalAmount >= MEDIUM_SIZE) {
-            return new WorkerEntityMedium.WorkerEntityMediumBuilder().build(this.builder);
+            return ProcessPriority.SECOND;
         } else
-            return new WorkerEntitySmall.WorkerEntitySmallBuilder().build(this.builder);
+            return ProcessPriority.FIRST;
     }
 
     public List<String> getNames() {
